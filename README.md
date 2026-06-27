@@ -20,6 +20,7 @@ Production-style SQL file, addressing a specific analytical question a trading d
 The core philosophy is to let the database do the heavy work. Window functions compute across multiple rows simultaneously without collapsing them — giving the support engineer ranked, compared, and aggregated results without a single loop or spreadsheet.
 
 ---
+Project Demo (index.html) : https://nehaaidasani16.github.io/Core-Trading-Analytics-Engine/
 
 ## Ranking Financial Risk Exposure
 
