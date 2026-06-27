@@ -1,0 +1,113 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#111;font-family:'Courier New',monospace;padding:16px;min-height:100vh;display:flex;align-items:flex-start;justify-content:center}
+.terminal{background:#1a1a1a;border-radius:12px;overflow:hidden;width:100%;max-width:620px;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+.topbar{background:#2d2d2d;padding:10px 16px;display:flex;align-items:center;gap:8px}
+.dot{width:12px;height:12px;border-radius:50%}
+.filename{color:#888;font-size:12px;margin-left:8px}
+.body{padding:18px 20px;font-size:13px;line-height:1.85;min-height:420px}
+.line{opacity:0;transform:translateY(4px);transition:opacity .3s ease,transform .3s ease;white-space:pre-wrap;word-break:break-all}
+.line.show{opacity:1;transform:translateY(0)}
+.prompt{color:#4ade80}.cmd{color:#e8e8e8}.info{color:#60a5fa}.ok{color:#4ade80}
+.warn{color:#facc15}.err{color:#f87171}.dim{color:#6b7280}.result{color:#67e8f9}
+.sep{color:#374151}.engine{color:#a78bfa}.sql{color:#c084fc}.amber{color:#fbbf24}
+.cursor{display:inline-block;width:8px;height:14px;background:#4ade80;margin-left:2px;animation:blink .8s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+.btn{background:#6a1b9a;color:#fff;border:none;border-radius:6px;padding:8px 20px;font-size:12px;font-family:inherit;cursor:pointer;margin:12px 20px 16px;display:block;transition:background .2s}
+.btn:hover{background:#4a148c}
+.progress{height:3px;background:#6a1b9a;width:0;transition:width .1s linear}
+</style>
+</head>
+<body>
+<div class="terminal">
+  <div class="topbar">
+    <div class="dot" style="background:#ff5f57"></div>
+    <div class="dot" style="background:#ffbd2e"></div>
+    <div class="dot" style="background:#28c840"></div>
+    <span class="filename">pgAdmin Query Tool — Institutional Trade Risk Analytics Engine</span>
+  </div>
+  <div class="progress" id="prog"></div>
+  <div class="body" id="body">
+    <div class="line show"><span class="prompt">psql#</span> <span class="cmd">Running analytics queries on trade_book...</span><span class="cursor"></span></div>
+  </div>
+  <button class="btn" id="btn" onclick="runDemo()">▶ Run Demo</button>
+</div>
+
+<script>
+const lines = [
+  {t:600,  cls:'sep',    txt:'════════════════════════════════════════════════'},
+  {t:700,  cls:'engine', txt:'     Institutional Trade Risk Analytics Engine'},
+  {t:800,  cls:'sep',    txt:'════════════════════════════════════════════════'},
+  {t:1100, cls:'info',   txt:'\n[DB]  Connected to capco_trading (PostgreSQL)'},
+  {t:1400, cls:'info',   txt:'[DB]  trade_book loaded — 5 rows · 2 managers · 3 instruments\n'},
+
+  {t:1800, cls:'sql',    txt:'━━━ QUERY 1: RISK EXPOSURE RANKER ━━━'},
+  {t:2000, cls:'dim',    txt:'Running DENSE_RANK() OVER (PARTITION BY portfolio_manager)...'},
+  {t:2400, cls:'result', txt:'\n  portfolio_manager  │ exec  │ instrument │ exposure       │ rank'},
+  {t:2500, cls:'sep',    txt:'  ─────────────────────────────────────────────────────────'},
+  {t:2700, cls:'ok',     txt:'  Capital_Alpha     │ EX_02 │ INFY       │ ₹10,668,750.00 │  1'},
+  {t:2900, cls:'result', txt:'  Capital_Alpha     │ EX_01 │ INFY       │  ₹5,680,000.00 │  2'},
+  {t:3100, cls:'result', txt:'  Capital_Alpha     │ EX_04 │ TCS        │  ₹4,815,000.00 │  3'},
+  {t:3300, cls:'ok',     txt:'  Omega_Trust       │ EX_05 │ RELI       │ ₹19,560,000.00 │  1  ← HIGHEST'},
+  {t:3500, cls:'result', txt:'  Omega_Trust       │ EX_03 │ RELI       │  ₹2,940,000.00 │  2\n'},
+
+  {t:3900, cls:'sql',    txt:'━━━ QUERY 2: PRICE DRIFT DETECTOR ━━━'},
+  {t:4100, cls:'dim',    txt:'Running WITH CTE + LAG() OVER (PARTITION BY instrument)...'},
+  {t:4500, cls:'result', txt:'\n  exec  │ instrument │ current  │ previous │ drift      │ flag'},
+  {t:4600, cls:'sep',    txt:'  ──────────────────────────────────────────────────────────'},
+  {t:4800, cls:'dim',    txt:'  EX_01 │ INFY       │ 1420.00  │ NULL     │ NULL       │ first trade'},
+  {t:5000, cls:'ok',     txt:'  EX_02 │ INFY       │ 1422.50  │ 1420.00  │ +2.50      │ PRICE INCREASE'},
+  {t:5200, cls:'dim',    txt:'  EX_04 │ TCS        │ 3210.00  │ NULL     │ NULL       │ first trade'},
+  {t:5400, cls:'dim',    txt:'  EX_03 │ RELI       │ 2450.00  │ NULL     │ NULL       │ first trade'},
+  {t:5600, cls:'err',    txt:'  EX_05 │ RELI       │ 2445.00  │ 2450.00  │ -5.00      │ ⚠ DROP — REVIEW\n'},
+
+  {t:6000, cls:'sql',    txt:'━━━ QUERY 3: PORTFOLIO SUMMARY ━━━'},
+  {t:6200, cls:'dim',    txt:'Running SUM() OVER (PARTITION BY manager ORDER BY exposure)...'},
+  {t:6600, cls:'result', txt:'\n  portfolio_manager  │ book_size      │ pct_of_book │ cumulative'},
+  {t:6700, cls:'sep',    txt:'  ──────────────────────────────────────────────────────────'},
+  {t:6900, cls:'result', txt:'  Capital_Alpha     │ ₹21,163,750    │ 50.41%      │ ₹10,668,750'},
+  {t:7100, cls:'result', txt:'  Capital_Alpha     │ ₹21,163,750    │ 26.84%      │ ₹16,348,750'},
+  {t:7300, cls:'result', txt:'  Capital_Alpha     │ ₹21,163,750    │ 22.75%      │ ₹21,163,750'},
+  {t:7500, cls:'err',    txt:'  Omega_Trust       │ ₹22,500,000    │ 86.93%      │ ₹19,560,000  ← CONCENTRATION RISK'},
+  {t:7700, cls:'result', txt:'  Omega_Trust       │ ₹22,500,000    │ 13.07%      │ ₹22,500,000\n'},
+
+  {t:8100, cls:'sep',    txt:'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━'},
+  {t:8200, cls:'amber',  txt:'[INSIGHT] Omega_Trust has 86.93% of total book in 1 position.'},
+  {t:8400, cls:'err',    txt:'[ALERT]   RELI price dropped ₹5.00 — ₹40,000 value erosion flagged.'},
+  {t:8600, cls:'ok',     txt:'[RESULT]  3 queries · 5 trades · 2 portfolios · millisecond response'},
+  {t:8900, cls:'sep',    txt:'━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n'},
+  {t:9200, cls:'info',   txt:'[ENGINE] Analysis complete. Connection closed.\n'},
+  {t:9400, cls:'prompt', txt:'psql# ▊'},
+];
+
+function runDemo(){
+  const body=document.getElementById('body');
+  const btn=document.getElementById('btn');
+  const prog=document.getElementById('prog');
+  btn.disabled=true; btn.textContent='⏳ Running...';
+  const total=lines[lines.length-1].t+400;
+  lines.forEach(l=>{
+    setTimeout(()=>{
+      const d=document.createElement('div');
+      d.className='line '+l.cls;
+      d.textContent=l.txt;
+      body.appendChild(d);
+      requestAnimationFrame(()=>d.classList.add('show'));
+      body.scrollTop=body.scrollHeight;
+      prog.style.width=((l.t/total)*100)+'%';
+    },l.t);
+  });
+  setTimeout(()=>{
+    prog.style.width='100%';
+    btn.textContent='↺ Run Again';
+    btn.disabled=false;
+    btn.onclick=()=>location.reload();
+  },total);
+}
+</script>
+</body>
+</html>
